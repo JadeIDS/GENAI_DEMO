@@ -8,17 +8,11 @@ class few_shot_settings:
         Never query for all the columns from a specific table, only ask for a the few relevant columns given the question.
 		If you don't know the answer, provide what you think the sql should be but do not make up code if a column isn't available. Use snowflake aggregate functions like SUM, MIN, MAX, etc. if user ask to find total, minimum or maximum.
         DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.) to the database. 
-		Few rules to follow are
-		1. always interpret QUARTER_NAME in the format YYYY-QQ from various inputs from user for example inputs like Q1'22 or 1st qtr 22 or 2022 quarter1 or 22Q1 or 22'Q1 or 22 Q1 or Q1 of financial year 22 should be translated as YYYY-QQ 
-		2. You must interpret next quarter, previous quarter, next year first quarter etc keeping below rule into consideration: 
-           a. Rule to determine quarter would be as per below
-                for MONTH(CURRENT_DATE()) IN (2, 3, 4) quarter would be Q1 and year would be YEAR(CURRENT_DATE())+1
-                for MONTH(CURRENT_DATE()) IN (5, 6, 7) quarter would be Q2 and year would be YEAR(CURRENT_DATE())+1
-                for MONTH(CURRENT_DATE()) IN (8, 9, 10) quarter would be Q3 and year would be YEAR(CURRENT_DATE())+1
-                for MONTH(CURRENT_DATE()) IN (11, 12) quarter would be Q4 and year would be YEAR(CURRENT_DATE())+1
-                for MONTH(CURRENT_DATE()) IN (1) quarter would be Q4 and year would be YEAR(CURRENT_DATE())
-           Always calculate value of QUARTER_NAME by using above 2 rules and concatenate to bring in format  'YYYY-QQ'. 
-           Strictly do not use inner query for such questions from user. Refer example containing next quarter the QUARTER_NAME is calculated as per Current_date year is 2023 and month is Nov or 11
+		Few rules to follow are:
+        1. Always Pick Current Financial Year as 2024. Based on this assumption last 3 Quarters are 2024-Q1,2024-Q2,2024-Q3 and next 3 Quarters are 2025-Q1,2025-Q2,2025-Q3 and current quarter is 2024-Q4. The Keyword next might also be phrased as previous & next might also be phrased as upcoming.
+		2. always interpret QUARTER_NAME in the format YYYY-QQ from various inputs from user for example inputs like Q1'22 or 1st qtr 22 or 2022 quarter1 or 22Q1 or 22'Q1 or 22 Q1 or Q1 of financial year 22 should be translated as YYYY-QQ 
+		
+           Strictly do not use inner query for such questions from user. Refer example for next quarter and previous quarter question.
         3. Always use column aliases as per example and metadata
         4. for any aggregation function like sum, avg, max, min and count, the must be GROUP BY clause on all columns selected without aggregate function. 
         5. preference is to use direct inner or left join. Avoid inner queries in WHERE clause.
@@ -115,10 +109,37 @@ class few_shot_settings:
                 "input": "what is inventory on hand for previous 2 quarters for the business unit Switch.",
                 "sql_cmd": '''SELECT A.QUARTER_NAME AS "QUARTER NAME", B.BU AS "BU", to_varchar(A.AMOUNT, '$ 999,999,999.90') AS "ON-HAND INVENTORY AMOUNT"
                             FROM FINANCIALS.MARVELL_DEMO.INVENTORY_ON_HANDS A LEFT JOIN FINANCIALS.MARVELL_DEMO.ITEM_DETAILS B ON B.ITEM_WID = A.ITEM_WID WHERE A.QUARTER_NAME IN ('2024-Q3','2024-Q2');''',
-            },            {
+            },      
+	    {
                 "input": "what is inventory on hand for current quarter for the business unit Switch.",
                 "sql_cmd": '''SELECT A.QUARTER_NAME AS "QUARTER NAME", B.BU AS "BU", to_varchar(A.AMOUNT, '$ 999,999,999.90') AS "ON-HAND INVENTORY AMOUNT"
                             FROM FINANCIALS.MARVELL_DEMO.INVENTORY_ON_HANDS A LEFT JOIN FINANCIALS.MARVELL_DEMO.ITEM_DETAILS B ON B.ITEM_WID = A.ITEM_WID WHERE A.QUARTER_NAME = '2024-Q4';''',
+            },
+	    {
+                "input": "what all are qualified manufacturing sources or manufacturing sources.",
+                "sql_cmd": '''SELECT DISTINCT FAB_HOUSE 
+		           FROM FINANCIALS.MARVELL_DEMO.ITEM_DETAILS ;''',
+            },
+	    {
+                "input": "what all are manufacturing geography or manufacturing product geography.",
+                "sql_cmd": '''SELECT DISTINCT DESIGN_COUNTRY
+		           FROM FINANCIALS.MARVELL_DEMO.ITEM_DETAILS ;''',
+            },
+	    {
+                "input": "what are unique 'item stage' or 'product stage' or 'product lifecycle stage' or 'sub inventory stage' or 'sub-inventory stage'.",
+                "sql_cmd": '''SELECT DISTINCT ITEM_STAGE
+		           FROM FINANCIALS.MARVELL_DEMO.ITEM_DETAILS ;''',
+            },
+	    {
+                "input": "which BU NPI or New Product Introduction and FG or finished good and FIN Stages belong to.",
+                "sql_cmd": '''SELECT BU 
+		           FROM FINANCIALS.MARVELL_DEMO.ITEM_DETAILS WHERE ITEM_TYPE IN ('NPI','FG','FIN');''',
+            },
+	    {
+                "input": "what is inventory on hand for last or previous quarter for the business unit Switch.",
+                "sql_cmd": '''SELECT A.QUARTER_NAME AS "QUARTER NAME", B.BU AS "BU", to_varchar(A.AMOUNT, '$ 999,999,999.90') AS "ON-HAND INVENTORY AMOUNT"
+                            FROM FINANCIALS.MARVELL_DEMO.INVENTORY_ON_HANDS A LEFT JOIN FINANCIALS.MARVELL_DEMO.ITEM_DETAILS B ON B.ITEM_WID = A.ITEM_WID WHERE A.QUARTER_NAME = '2024-Q3'  AND
+                                B.BU = 'Switch';''',
             },
         ]
         return examples
