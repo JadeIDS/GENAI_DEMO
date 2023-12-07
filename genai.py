@@ -274,7 +274,6 @@ if authenticate_user():
                   query_result = sf_query(output['result'])
                   output_operation(query_result,str_input)
         except Exception as error:
-          st.write(error)
           with st.chat_message("assistant"):
             err_msg = "Data for the provided question is not available."
             st.markdown(err_msg)
