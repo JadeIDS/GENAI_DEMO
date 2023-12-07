@@ -80,8 +80,8 @@ class zero_shot_analyze_utility:
         
 llm = ChatOpenAI(
     model_name="gpt-4",
-    temperature=0.1,
-    max_tokens=1000,
+    temperature=0,
+    max_tokens=2000,
     openai_api_key= st.secrets["openai_key"]
 )
 
@@ -151,7 +151,8 @@ def output_operation(query_result,str_input):
             analysis = fs_analysis(df_analysis,str_input)                    
             headers = df_2.columns
             st.markdown(f'<p style="font-family:sans-serif; font-size:15px">{analysis}</p>', unsafe_allow_html=True)
-            st.markdown(tabulate(df_2, tablefmt="html",headers=headers,showindex=False), unsafe_allow_html = True) 
+            with st.expander("Table Output:"):
+               st.markdown(tabulate(df_2, tablefmt="html",headers=headers,showindex=False), unsafe_allow_html = True) 
             #st.markdown(analysis)
             st.text("")
             with st.expander("The SQL query used for above question is:"):
@@ -162,6 +163,8 @@ def output_operation(query_result,str_input):
         with st.chat_message("assistant"):
             err_msg = "Data for the provided question is not available. Please try to improve your question."
             st.markdown(err_msg)
+            with st.expander("The SQL query used for above question is:"):
+              st.write(output['result'])
             st.session_state.messages.append({"role": "assistant", "content": err_msg})
     
 st.set_page_config(layout="wide")
@@ -247,7 +250,8 @@ if authenticate_user():
                df_data.columns = df_data.columns.str.replace('_', ' ')
                headers = df_data.columns
                st.markdown(f'<p style="font-family:sans-serif; font-size:15px">{analysis_str}</p>', unsafe_allow_html=True)
-               st.markdown(tabulate(df_data, tablefmt="html",headers=headers,showindex=False), unsafe_allow_html = True) 
+               with st.expander("Table Output:"):
+                  st.markdown(tabulate(df_data, tablefmt="html",headers=headers,showindex=False), unsafe_allow_html = True) 
                #st.markdown(analysis_str)
             else:
                 st.markdown(df_str)
@@ -270,6 +274,7 @@ if authenticate_user():
                   query_result = sf_query(output['result'])
                   output_operation(query_result,str_input)
         except Exception as error:
+          st.write(error)
           with st.chat_message("assistant"):
             err_msg = "Data for the provided question is not available."
             st.markdown(err_msg)
