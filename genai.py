@@ -198,19 +198,7 @@ def main_execution():
     # Configures the default settings of the page and layout ="wide" is how the page content should be laid out.
     st.set_page_config(layout="wide")
 
-    ### Variables
 
-    # Username and Password to get authenticate to the app
-    username=st.secrets["streamlit_username"]
-    password=st.secrets["streamlit_password"]
-
-    #  establish OpenAI connection
-    llm = ChatOpenAI(
-        model_name="gpt-4",
-        temperature=0,
-        max_tokens=2000,
-        openai_api_key= st.secrets["openai_key"])
-        
     # We get the data for prefix,suffix,examples etc from the few_shot_settings file   
     prefix = few_shot_settings.get_prefix()
     suffix, input_variable = few_shot_settings.get_suffix()
@@ -309,4 +297,17 @@ def main_execution():
                 
 
 if __name__=="__main__":
+    ### Variables
+
+    # Username and Password to get authenticate to the app
+    username=st.secrets["streamlit_username"]
+    password=st.secrets["streamlit_password"]
+
+    #  establish OpenAI connection
+    llm = ChatOpenAI(
+        model_name="gpt-4",
+        temperature=0,
+        max_tokens=2000,
+        openai_api_key= st.secrets["openai_key"])
+        
     main_execution()
