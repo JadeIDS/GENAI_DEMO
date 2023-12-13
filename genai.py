@@ -32,7 +32,7 @@ password=st.secrets["streamlit_password"]
 
 #  establish OpenAI connection
 llm = ChatOpenAI(
-    model_name="gpt-4",
+    model_name="gpt-3.5-turbo",
     temperature=0,
     max_tokens=2000,
     openai_api_key= st.secrets["openai_key"])
