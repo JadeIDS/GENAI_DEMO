@@ -20,48 +20,66 @@ from PIL import Image
 from io import StringIO
 from FewShotSettings import few_shot_settings
 
+### Classes
 
-# Configures the default settings of the page and layout ="wide" is how the page content should be laid out.
-st.set_page_config(layout="wide")
+# Returns the prompt_template to get the SQL query
+class few_shot_prompt_utility:
 
-### Variables
+    def __init__(self, examples, prefix, suffix, input_variables, example_template, example_variables):
+        self.examples = examples
+        self.prefix = prefix
+        self.suffix = suffix
+        self.input_variables = input_variables
+        self.example_template = example_template
+        self.example_variables = example_variables
 
-# Username and Password to get authenticate to the app
-username=st.secrets["streamlit_username"]
-password=st.secrets["streamlit_password"]
-
-#  establish OpenAI connection
-llm = ChatOpenAI(
-    model_name="gpt-3.5-turbo",
-    temperature=0,
-    max_tokens=2000,
-    openai_api_key= st.secrets["openai_key"])
+    def get_prompt_template(self):
+        example_prompt = PromptTemplate(
+            input_variables=self.example_variables,
+            template=self.example_template
+        )
+        return example_prompt
     
-# We get the data for prefix,suffix,examples etc from the few_shot_settings file   
-prefix = few_shot_settings.get_prefix()
-suffix, input_variable = few_shot_settings.get_suffix()
-examples = few_shot_settings.get_examples()
-example_template, example_variables = few_shot_settings.get_example_template()
+    def get_embeddings(self):
+        embeddings = OpenAIEmbeddings(openai_api_key= st.secrets["openai_key"])
+        return embeddings
+    
+    def get_example_selector(self, embeddings):
+        example_selector = SemanticSimilarityExampleSelector.from_examples(
+            self.examples,
+            embeddings,
+            FAISS,
+            k=3
+        )
+        return example_selector
+        
+    def get_prompt(self, question, example_selector, example_prompt):
+        prompt_template = FewShotPromptTemplate(
+            example_selector=example_selector,
+            example_prompt=example_prompt,
+            prefix=self.prefix,
+            suffix=self.suffix,
+            input_variables=self.input_variables
+        )
+        prompt = prompt_template.format(question=question, context="Inventory")
+        return prompt_template
+        
+#Returns the prompt_template to get the analysis
+class zero_shot_analyze_utility:
 
-fewShot = few_shot_prompt_utility(examples=examples,
-                                        prefix=prefix,
-                                        suffix=suffix,
-                                        input_variables=input_variable,
-                                        example_template=example_template,
-                                        example_variables=example_variables
-                                        )
+    def __init__(self, question, ask, context, metadata):
+        self.question = question
+        self.ask = ask
+        self.context = context
+        self.metadata = metadata
 
-# establish snowpark connection
-conn = st.connection("snowpark")
+    def get_analyze_prompt(self):
+        template, variables = zero_shot_analyze_settings.get_prompt_template(self.ask, self.metadata)
+        prompt_template = PromptTemplate(template=template, input_variables=variables)
+        prompt_template.format(question=self.question, context=self.context)
+        return prompt_template
+        
 
-# Reset the connection before using it if it isn't healthy
-try:
-    query_test = conn.query('select 1')
-except:
-    conn.reset()
-
-# adding this to test out caching
-st.cache_data(ttl=86400)
 
 
 ### Fuctions 
@@ -174,137 +192,121 @@ def authenticate_user():
                   col.text_input(label="Password:", value="", key="streamlit_password", type="password", on_change=creds_entered)
                   return False
 
-### Classes
-
-# Returns the prompt_template to get the SQL query
-class few_shot_prompt_utility:
-
-    def __init__(self, examples, prefix, suffix, input_variables, example_template, example_variables):
-        self.examples = examples
-        self.prefix = prefix
-        self.suffix = suffix
-        self.input_variables = input_variables
-        self.example_template = example_template
-        self.example_variables = example_variables
-
-    def get_prompt_template(self):
-        example_prompt = PromptTemplate(
-            input_variables=self.example_variables,
-            template=self.example_template
-        )
-        return example_prompt
-    
-    def get_embeddings(self):
-        embeddings = OpenAIEmbeddings(openai_api_key= st.secrets["openai_key"])
-        return embeddings
-    
-    def get_example_selector(self, embeddings):
-        example_selector = SemanticSimilarityExampleSelector.from_examples(
-            self.examples,
-            embeddings,
-            FAISS,
-            k=3
-        )
-        return example_selector
         
-    def get_prompt(self, question, example_selector, example_prompt):
-        prompt_template = FewShotPromptTemplate(
-            example_selector=example_selector,
-            example_prompt=example_prompt,
-            prefix=self.prefix,
-            suffix=self.suffix,
-            input_variables=self.input_variables
-        )
-        prompt = prompt_template.format(question=question, context="Inventory")
-        return prompt_template
-        
-#Returns the prompt_template to get the analysis
-class zero_shot_analyze_utility:
-
-    def __init__(self, question, ask, context, metadata):
-        self.question = question
-        self.ask = ask
-        self.context = context
-        self.metadata = metadata
-
-    def get_analyze_prompt(self):
-        template, variables = zero_shot_analyze_settings.get_prompt_template(self.ask, self.metadata)
-        prompt_template = PromptTemplate(template=template, input_variables=variables)
-        prompt_template.format(question=self.question, context=self.context)
-        return prompt_template
-        
-        
-# Main execution
-
-# if the username and password matched we can see the frontend page of the app
-if authenticate_user():
-    with st.sidebar:
-      image = Image.open("assets/jadeglobal.png")
-      image = st.image('assets/jadeglobal.png',width=280)
-      #st.markdown(""" ### SCM Inventory Management """)
-      st.markdown("<h3 style='text-align: center;'>SCM Inventory Management</h3>", unsafe_allow_html=True)
-      st.markdown("<h3 style='text-align: center;'>GenAI Assistant</h3>", unsafe_allow_html=True)
-      
-    st.markdown("""
-    #### This is a demo to query inventory data from Snowflake for Marvell.
-    #### Post your question in the text box below. 
-              
-    """)  
-      
-    # we take user input that is NLP question and we store it in str_input
-    str_input = st.chat_input("Enter your question:")
-
+def main_execution():
     
-    # This code is used to store the question and answer in the session
-    if "messages" not in st.session_state.keys():
-          st.session_state.messages = []
+    # Configures the default settings of the page and layout ="wide" is how the page content should be laid out.
+    st.set_page_config(layout="wide")
 
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            role = message["role"]
-            df_str = message["content"]
-            if role == "user":
-                st.markdown(df_str, unsafe_allow_html = True)
-                continue
-            if df_str.find("<separator>") > -1:
-               csv_str = df_str[:df_str.index("<separator>")]
-               analysis_str = df_str[df_str.index("<separator>") + len("<separator>"):]
-               csv = StringIO(csv_str)
-               df_data = pd.read_csv(csv, sep=',')
-               df_data.columns = df_data.columns.str.replace('_', ' ')
-               headers = df_data.columns
-               st.markdown(f'<p style="font-family:sans-serif; font-size:15px">{analysis_str}</p>', unsafe_allow_html=True)
-               with st.expander("Table Output:"):
-                  st.markdown(tabulate(df_data, tablefmt="html",headers=headers,showindex=False), unsafe_allow_html = True) 
-               #st.markdown(analysis_str)
-            else:
-                st.markdown(df_str)
-    
-    # if the user asks the question then only we will go further  
-    if prompt := str_input:
-        st.chat_message("user").markdown(prompt, unsafe_allow_html = True)
-        # Add user message to chat history
-        st.session_state.messages.append({"role": "user", "content": prompt})
+    ### Variables
 
-        try:
-            # The string input is given fs_chain function so we get the SQL query generated by OpenAI
-            output = fs_chain(str_input)
-            #st.write(output['result'])
+    # Username and Password to get authenticate to the app
+    username=st.secrets["streamlit_username"]
+    password=st.secrets["streamlit_password"]
+
+    #  establish OpenAI connection
+    llm = ChatOpenAI(
+        model_name="gpt-4",
+        temperature=0,
+        max_tokens=2000,
+        openai_api_key= st.secrets["openai_key"])
+        
+    # We get the data for prefix,suffix,examples etc from the few_shot_settings file   
+    prefix = few_shot_settings.get_prefix()
+    suffix, input_variable = few_shot_settings.get_suffix()
+    examples = few_shot_settings.get_examples()
+    example_template, example_variables = few_shot_settings.get_example_template()
+
+    fewShot = few_shot_prompt_utility(examples=examples,
+                                            prefix=prefix,
+                                            suffix=suffix,
+                                            input_variables=input_variable,
+                                            example_template=example_template,
+                                            example_variables=example_variables
+                                            )
+
+    # establish snowpark connection
+    conn = st.connection("snowpark")
+
+    # Reset the connection before using it if it isn't healthy
+    try:
+        query_test = conn.query('select 1')
+    except:
+        conn.reset()
+
+    # adding this to test out caching
+    st.cache_data(ttl=86400)
+    # if the username and password matched we can see the frontend page of the app
+    if authenticate_user():
+        with st.sidebar:
+          image = Image.open("assets/jadeglobal.png")
+          image = st.image('assets/jadeglobal.png',width=280)
+          #st.markdown(""" ### SCM Inventory Management """)
+          st.markdown("<h3 style='text-align: center;'>SCM Inventory Management</h3>", unsafe_allow_html=True)
+          st.markdown("<h3 style='text-align: center;'>GenAI Assistant</h3>", unsafe_allow_html=True)
+          
+        st.markdown("""
+        #### This is a demo to query inventory data from Snowflake for Marvell.
+        #### Post your question in the text box below. 
+                  
+        """)  
+          
+        # we take user input that is NLP question and we store it in str_input
+        str_input = st.chat_input("Enter your question:")
+
+        
+        # This code is used to store the question and answer in the session
+        if "messages" not in st.session_state.keys():
+              st.session_state.messages = []
+
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                role = message["role"]
+                df_str = message["content"]
+                if role == "user":
+                    st.markdown(df_str, unsafe_allow_html = True)
+                    continue
+                if df_str.find("<separator>") > -1:
+                   csv_str = df_str[:df_str.index("<separator>")]
+                   analysis_str = df_str[df_str.index("<separator>") + len("<separator>"):]
+                   csv = StringIO(csv_str)
+                   df_data = pd.read_csv(csv, sep=',')
+                   df_data.columns = df_data.columns.str.replace('_', ' ')
+                   headers = df_data.columns
+                   st.markdown(f'<p style="font-family:sans-serif; font-size:15px">{analysis_str}</p>', unsafe_allow_html=True)
+                   with st.expander("Table Output:"):
+                      st.markdown(tabulate(df_data, tablefmt="html",headers=headers,showindex=False), unsafe_allow_html = True) 
+                   #st.markdown(analysis_str)
+                else:
+                    st.markdown(df_str)
+        
+        # if the user asks the question then only we will go further  
+        if prompt := str_input:
+            st.chat_message("user").markdown(prompt, unsafe_allow_html = True)
+            # Add user message to chat history
+            st.session_state.messages.append({"role": "user", "content": prompt})
+
             try:
-                # if the output doesn't work we will try one additional attempt to fix it
-                query_result = sf_query(output['result'])
-                output_operation(query_result,str_input)
-  
-            except Exception as error:    
-                  # if the output doesn't work in the first try so we will try one additional attempt to fix it
-                  output = fs_chain(f'You need to fix the code but ONLY produce SQL code output. If the question is complex, consider using one or more CTE. Examine the DDL statements and answer this question: {output}')
-                  query_result = sf_query(output['result'])
-                  output_operation(query_result,str_input)
-        except Exception as error:
-          # if we will not get the query_result
-          with st.chat_message("assistant"):
-            err_msg = "Data for the provided question is not available."
-            st.markdown(err_msg)
-            st.session_state.messages.append({"role": "assistant", "content": err_msg})
-            
+                # The string input is given fs_chain function so we get the SQL query generated by OpenAI
+                output = fs_chain(str_input)
+                #st.write(output['result'])
+                try:
+                    # if the output doesn't work we will try one additional attempt to fix it
+                    query_result = sf_query(output['result'])
+                    output_operation(query_result,str_input)
+      
+                except Exception as error:    
+                      # if the output doesn't work in the first try so we will try one additional attempt to fix it
+                      output = fs_chain(f'You need to fix the code but ONLY produce SQL code output. If the question is complex, consider using one or more CTE. Examine the DDL statements and answer this question: {output}')
+                      query_result = sf_query(output['result'])
+                      output_operation(query_result,str_input)
+            except Exception as error:
+              # if we will not get the query_result
+              with st.chat_message("assistant"):
+                err_msg = "Data for the provided question is not available."
+                st.markdown(err_msg)
+                st.session_state.messages.append({"role": "assistant", "content": err_msg})
+                
 
+if __name__=="__main__":
+    main_execution()
