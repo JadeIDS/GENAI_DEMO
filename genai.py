@@ -283,12 +283,14 @@ def main_execution():
                     query_result = sf_query(output['result'])
                     output_operation(query_result,str_input)
       
-                except Exception as error:    
+                except Exception as error:
+                      st.write(error)
                       # if the output doesn't work in the first try so we will try one additional attempt to fix it
                       output = fs_chain(f'You need to fix the code but ONLY produce SQL code output. If the question is complex, consider using one or more CTE. Examine the DDL statements and answer this question: {output}')
                       query_result = sf_query(output['result'])
                       output_operation(query_result,str_input)
             except Exception as error:
+              st.write(error)
               # if we will not get the query_result
               with st.chat_message("assistant"):
                 err_msg = "Data for the provided question is not available."
