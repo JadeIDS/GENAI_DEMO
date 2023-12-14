@@ -79,7 +79,26 @@ class zero_shot_analyze_utility:
         prompt_template.format(question=self.question, context=self.context)
         return prompt_template
         
+# Configures the default settings of the page and layout ="wide" is how the page content should be laid out.
+st.set_page_config(layout="wide")
 
+
+# We get the data for prefix,suffix,examples etc from the few_shot_settings file   
+prefix = few_shot_settings.get_prefix()
+suffix, input_variable = few_shot_settings.get_suffix()
+examples = few_shot_settings.get_examples()
+example_template, example_variables = few_shot_settings.get_example_template()
+
+fewShot = few_shot_prompt_utility(examples=examples,
+                                        prefix=prefix,
+                                        suffix=suffix,
+                                        input_variables=input_variable,
+                                        example_template=example_template,
+                                        example_variables=example_variables
+                                        )
+
+# establish snowpark connection
+conn = st.connection("snowpark")
 
 
 ### Fuctions 
@@ -195,26 +214,7 @@ def authenticate_user():
         
 def main_execution():
     
-    # Configures the default settings of the page and layout ="wide" is how the page content should be laid out.
-    st.set_page_config(layout="wide")
 
-
-    # We get the data for prefix,suffix,examples etc from the few_shot_settings file   
-    prefix = few_shot_settings.get_prefix()
-    suffix, input_variable = few_shot_settings.get_suffix()
-    examples = few_shot_settings.get_examples()
-    example_template, example_variables = few_shot_settings.get_example_template()
-
-    fewShot = few_shot_prompt_utility(examples=examples,
-                                            prefix=prefix,
-                                            suffix=suffix,
-                                            input_variables=input_variable,
-                                            example_template=example_template,
-                                            example_variables=example_variables
-                                            )
-
-    # establish snowpark connection
-    conn = st.connection("snowpark")
 
     # Reset the connection before using it if it isn't healthy
     try:
