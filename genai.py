@@ -214,8 +214,6 @@ def authenticate_user():
         
 def main_execution():
     
-
-
     # Reset the connection before using it if it isn't healthy
     try:
         query_test = conn.query('select 1')
